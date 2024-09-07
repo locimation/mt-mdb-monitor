@@ -29,6 +29,10 @@ struct Args {
     #[clap(short, long)]
     loki: Option<String>,
 
+    // No initial logging
+    #[clap(short, long)]
+    quietstart: bool
+
 }
 
 #[tokio::main]
@@ -75,7 +79,7 @@ async fn main() -> Result<()> {
     let addr = format!("{}:8728", args.host);
 
     // Connect to the router
-    let (_bridge, mut events_channel) = MikrotikBridge::new(&addr, &args.username, args.password.as_deref()).await.expect("Failed to connect to Mikrotik router");
+    let (_bridge, mut events_channel) = MikrotikBridge::new(&addr, &args.username, args.password.as_deref(), args.quietstart).await.expect("Failed to connect to Mikrotik router");
     info!("Connected to Mikrotik router on {}", addr);
 
     // Get bridge mdb entries
@@ -89,9 +93,7 @@ async fn main() -> Result<()> {
             MikrotikBridgeEvent::MdbLeave(PortMembership { port, group, vlan_id }) => {
                 info!("Port {} left group {} in VLAN {}", port, group, vlan_id);
             }
-            MikrotikBridgeEvent::BridgeMdbTableChanged => {
-                info!("Bridge MDB table changed");
-            }
+            MikrotikBridgeEvent::BridgeMdbTableChanged => {}
         }
 
     }

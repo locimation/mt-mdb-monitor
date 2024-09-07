@@ -51,21 +51,21 @@ pub enum MikrotikBridgeEvent {
 
 impl MikrotikBridge {
 
-    pub async fn new(ip: &str, username: &str, password: Option<&str>) -> Result<(Self, tokio::sync::mpsc::Receiver<MikrotikBridgeEvent>)> {
+    pub async fn new(ip: &str, username: &str, password: Option<&str>, quiet_start: bool) -> Result<(Self, tokio::sync::mpsc::Receiver<MikrotikBridgeEvent>)> {
 
         let (event_tx, event_rx) = tokio::sync::mpsc::channel(10000);
 
         let device = MikrotikDevice::connect(ip, username, password).await?;
         let device = Self { device, mdb: Default::default(), event_tx };
 
-        device.load_initial_mdb_entries().await?;
+        device.load_initial_mdb_entries(quiet_start).await?;
         device.listen_bridge_mdb_entries().await?;
 
         Ok((device, event_rx))
 
     }
 
-    async fn load_initial_mdb_entries(&self) -> Result<()> {
+    async fn load_initial_mdb_entries(&self, quiet_start: bool) -> Result<()> {
         let command = CommandBuilder::new().command("/interface/bridge/mdb/print").build();
         let mut response_channel = self.device.send_command(command).await;
         let mut entries = HashMap::new();
@@ -78,6 +78,10 @@ impl MikrotikBridge {
         {
             let mut mdb = self.mdb.lock().await;
             mdb.entries = entries.clone();
+        }
+
+        if quiet_start {
+            return Ok(());
         }
 
         for entry in entries.values() {
